@@ -10,12 +10,15 @@ TIPO_POR_NAMESPACE = {
 }
 
 
+_SAFE_PARSER = etree.XMLParser(resolve_entities=False, no_network=True)
+
+
 def detect_tipo_xml(raw_bytes: bytes) -> tuple:
     """Identifica o tipo do documento fiscal inspecionando o namespace do elemento raiz.
 
     Retorna uma tupla (tipo_str, root_element) para evitar parsear duas vezes.
     """
-    root = etree.fromstring(raw_bytes)
+    root = etree.fromstring(raw_bytes, _SAFE_PARSER)
     for uri in root.nsmap.values():
         if uri in TIPO_POR_NAMESPACE:
             return TIPO_POR_NAMESPACE[uri], root

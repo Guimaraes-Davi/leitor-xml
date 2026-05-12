@@ -337,6 +337,8 @@ const $ = id => document.getElementById(id);
 
 // ── Formatadores ──
 
+const esc = s => s == null ? '' : String(s).replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;').replace(/"/g,'&quot;');
+
 const fmtR$   = v => v ? new Intl.NumberFormat('pt-BR', { style: 'currency', currency: 'BRL' }).format(+v) : '—';
 const fmtQtd  = v => v ? new Intl.NumberFormat('pt-BR', { maximumFractionDigits: 4 }).format(+v) : '—';
 const fmtCNPJ = v => v ? v.replace(/^(\d{2})(\d{3})(\d{3})(\d{4})(\d{2})$/, '$1.$2.$3/$4-$5') : '—';
@@ -355,8 +357,8 @@ function fmtDt(v) {
 
 function fmtEndereco(e) {
   if (!e) return null;
-  const l1 = [e.logradouro, e.numero ? `nº ${e.numero}` : null, e.complemento].filter(Boolean).join(', ');
-  const l2 = [e.bairro, e.municipio && e.uf ? `${e.municipio}/${e.uf}` : (e.municipio || e.uf)].filter(Boolean).join(' — ');
+  const l1 = [esc(e.logradouro), e.numero ? `nº ${esc(e.numero)}` : null, esc(e.complemento)].filter(Boolean).join(', ');
+  const l2 = [esc(e.bairro), e.municipio && e.uf ? `${esc(e.municipio)}/${esc(e.uf)}` : (esc(e.municipio) || esc(e.uf))].filter(Boolean).join(' — ');
   const cep = e.cep ? fmtCEP(e.cep) : null;
   return [l1, l2, cep].filter(Boolean).join('<br>') || null;
 }
@@ -391,11 +393,11 @@ function renderDocHeader(d) {
 
   $('doc-header').innerHTML = `
     <div class="doc-header">
-      <span class="doc-badge ${tipo}">${d.tipo || 'NFe'}</span>
+      <span class="doc-badge ${esc(tipo)}">${esc(d.tipo) || 'NFe'}</span>
       <div>
         <div class="doc-chave" title="Chave de Acesso">${fmtChave(d.chave)}</div>
         ${meta ? `<div class="doc-meta">${meta}</div>` : ''}
-        ${d.natureza_operacao ? `<div class="doc-nat">${d.natureza_operacao}</div>` : ''}
+        ${d.natureza_operacao ? `<div class="doc-nat">${esc(d.natureza_operacao)}</div>` : ''}
       </div>
     </div>`;
 }
@@ -404,17 +406,17 @@ function renderCards(emit, dest) {
   $('cards').innerHTML =
     card('Emitente', [
       ['CNPJ',          fmtCNPJ(emit.cnpj)],
-      ['Razão Social',  emit.nome],
-      ['Nome Fantasia', emit.nome_fantasia],
-      ['IE',            emit.ie],
+      ['Razão Social',  esc(emit.nome)],
+      ['Nome Fantasia', esc(emit.nome_fantasia)],
+      ['IE',            esc(emit.ie)],
       ['CRT',           crtLabel(emit.crt)],
       ['Endereço',      fmtEndereco(emit.endereco)],
     ]) +
     card('Destinatário', [
       [dest.tipo_documento || 'Documento', dest.tipo_documento === 'CPF' ? fmtCPF(dest.cpf) : fmtCNPJ(dest.cnpj)],
-      ['Nome',     dest.nome],
-      ['IE',       dest.ie],
-      ['E-mail',   dest.email],
+      ['Nome',     esc(dest.nome)],
+      ['IE',       esc(dest.ie)],
+      ['E-mail',   esc(dest.email)],
       ['Endereço', fmtEndereco(dest.endereco)],
     ]);
 }
@@ -426,11 +428,11 @@ function renderItens(itens) {
   }
   const linhas = itens.map(i => `
     <tr>
-      <td>${i.numero_item ?? '—'}</td>
-      <td class="col-desc">${i.descricao || '—'}</td>
-      <td>${i.ncm || '—'}</td>
-      <td>${i.cfop || '—'}</td>
-      <td>${i.unidade_comercial || '—'}</td>
+      <td>${esc(i.numero_item) || '—'}</td>
+      <td class="col-desc">${esc(i.descricao) || '—'}</td>
+      <td>${esc(i.ncm) || '—'}</td>
+      <td>${esc(i.cfop) || '—'}</td>
+      <td>${esc(i.unidade_comercial) || '—'}</td>
       <td class="num">${fmtQtd(i.quantidade)}</td>
       <td class="num">${fmtR$(i.valor_unitario)}</td>
       <td class="num">${fmtR$(i.valor_total_produto)}</td>
