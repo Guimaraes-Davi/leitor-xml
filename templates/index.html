@@ -1,0 +1,560 @@
+<!DOCTYPE html>
+<html lang="pt-BR">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Leitor XML Fiscal</title>
+  <style>
+    :root {
+      --bg:          #0d1117;
+      --surface:     #161b22;
+      --surface-2:   #1c2128;
+      --border:      #30363d;
+      --border-sub:  #21262d;
+      --primary:     #58a6ff;
+      --success:     #3fb950;
+      --danger:      #f85149;
+      --text-1:      #e6edf3;
+      --text-2:      #8b949e;
+      --text-3:      #484f58;
+      --radius:      6px;
+      --radius-lg:   12px;
+    }
+
+    *, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
+
+    body {
+      font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif;
+      background: var(--bg);
+      color: var(--text-1);
+      min-height: 100vh;
+      padding: 40px 24px 80px;
+      font-size: 14px;
+      line-height: 1.5;
+    }
+
+    .container { max-width: 1100px; margin: 0 auto; }
+
+    /* ── Header ── */
+    header { margin-bottom: 32px; }
+    header h1 { font-size: 20px; font-weight: 600; }
+    header p  { color: var(--text-2); margin-top: 4px; font-size: 13px; }
+
+    /* ── Upload zone ── */
+    #zone {
+      border: 2px dashed var(--border);
+      border-radius: var(--radius-lg);
+      padding: 56px 32px;
+      text-align: center;
+      cursor: pointer;
+      background: var(--surface);
+      transition: border-color .15s, background .15s;
+      user-select: none;
+    }
+    #zone:hover, #zone.drag-over {
+      border-color: var(--primary);
+      background: color-mix(in srgb, var(--primary) 5%, var(--surface));
+    }
+    #zone svg { color: var(--text-3); margin-bottom: 16px; }
+    #zone .upload-titulo { font-size: 16px; color: var(--text-1); }
+    #zone .upload-ou     { font-size: 13px; color: var(--text-3); margin: 8px 0; }
+    #zone .upload-hint   { font-size: 12px; color: var(--text-3); margin-top: 12px; }
+
+    .btn-browse {
+      display: inline-block;
+      padding: 7px 18px;
+      background: var(--primary);
+      color: #000;
+      border-radius: var(--radius);
+      font-size: 13px;
+      font-weight: 600;
+      cursor: pointer;
+      transition: opacity .15s;
+    }
+    .btn-browse:hover { opacity: .85; }
+
+    /* ── Loading ── */
+    #loading { text-align: center; padding: 48px; color: var(--text-2); }
+    .spinner {
+      display: inline-block;
+      width: 30px; height: 30px;
+      border: 3px solid var(--border);
+      border-top-color: var(--primary);
+      border-radius: 50%;
+      animation: spin .75s linear infinite;
+      margin-bottom: 12px;
+    }
+    @keyframes spin { to { transform: rotate(360deg); } }
+
+    /* ── Erro ── */
+    #erro {
+      background: color-mix(in srgb, var(--danger) 10%, transparent);
+      border: 1px solid var(--danger);
+      border-radius: var(--radius);
+      padding: 14px 18px;
+      color: var(--danger);
+      margin-top: 16px;
+    }
+
+    /* ── Resultado ── */
+    .resultado-nav {
+      display: flex;
+      align-items: center;
+      margin-bottom: 20px;
+    }
+    .btn-novo {
+      background: none;
+      border: 1px solid var(--border);
+      color: var(--text-2);
+      padding: 5px 14px;
+      border-radius: var(--radius);
+      cursor: pointer;
+      font-size: 13px;
+      transition: border-color .15s, color .15s;
+    }
+    .btn-novo:hover { border-color: var(--text-2); color: var(--text-1); }
+
+    /* ── Doc header ── */
+    .doc-header {
+      display: flex;
+      align-items: flex-start;
+      gap: 16px;
+      padding: 18px 22px;
+      background: var(--surface);
+      border: 1px solid var(--border);
+      border-radius: var(--radius-lg);
+      margin-bottom: 16px;
+    }
+    .doc-badge {
+      flex-shrink: 0;
+      padding: 3px 10px;
+      border-radius: 20px;
+      font-size: 11px;
+      font-weight: 700;
+      letter-spacing: .6px;
+      text-transform: uppercase;
+    }
+    .doc-badge.nfe  { background: color-mix(in srgb, var(--primary) 15%, transparent); color: var(--primary); }
+    .doc-badge.nfce { background: color-mix(in srgb, #a371f7 15%, transparent);        color: #a371f7; }
+    .doc-badge.cte  { background: color-mix(in srgb, #e3b341 15%, transparent);        color: #e3b341; }
+    .doc-badge.mdfe { background: color-mix(in srgb, var(--success) 15%, transparent); color: var(--success); }
+
+    .doc-chave {
+      font-family: 'SF Mono', Consolas, monospace;
+      font-size: 12px;
+      color: var(--text-2);
+      word-break: break-all;
+      line-height: 1.7;
+    }
+    .doc-meta {
+      font-size: 13px;
+      color: var(--text-2);
+      margin-top: 4px;
+    }
+    .doc-nat {
+      font-size: 14px;
+      font-weight: 500;
+      color: var(--text-1);
+      margin-top: 6px;
+    }
+
+    /* ── Cards ── */
+    .cards-grid {
+      display: grid;
+      grid-template-columns: 1fr 1fr;
+      gap: 16px;
+      margin-bottom: 16px;
+    }
+    @media (max-width: 680px) { .cards-grid { grid-template-columns: 1fr; } }
+
+    .card {
+      background: var(--surface);
+      border: 1px solid var(--border);
+      border-radius: var(--radius-lg);
+      padding: 18px 20px;
+    }
+    .card-titulo {
+      font-size: 11px;
+      font-weight: 600;
+      text-transform: uppercase;
+      letter-spacing: .8px;
+      color: var(--text-2);
+      margin-bottom: 14px;
+      padding-bottom: 10px;
+      border-bottom: 1px solid var(--border-sub);
+    }
+    .campo { margin-bottom: 10px; }
+    .campo:last-child { margin-bottom: 0; }
+    .campo-label {
+      display: block;
+      font-size: 10px;
+      text-transform: uppercase;
+      letter-spacing: .5px;
+      color: var(--text-3);
+      margin-bottom: 2px;
+    }
+    .campo-valor {
+      display: block;
+      font-size: 13px;
+      color: var(--text-1);
+      line-height: 1.5;
+    }
+
+    /* ── Seções (itens / totais) ── */
+    .secao {
+      background: var(--surface);
+      border: 1px solid var(--border);
+      border-radius: var(--radius-lg);
+      padding: 18px 20px;
+      margin-bottom: 16px;
+    }
+    .secao h2 {
+      font-size: 11px;
+      font-weight: 600;
+      text-transform: uppercase;
+      letter-spacing: .8px;
+      color: var(--text-2);
+      margin-bottom: 14px;
+      padding-bottom: 10px;
+      border-bottom: 1px solid var(--border-sub);
+    }
+
+    /* ── Tabela de itens ── */
+    .table-wrap { overflow-x: auto; }
+    table { width: 100%; border-collapse: collapse; font-size: 13px; }
+    th {
+      text-align: left;
+      padding: 8px 12px;
+      background: var(--surface-2);
+      color: var(--text-2);
+      font-size: 11px;
+      font-weight: 600;
+      text-transform: uppercase;
+      letter-spacing: .5px;
+      white-space: nowrap;
+    }
+    th:first-child { border-radius: var(--radius) 0 0 var(--radius); }
+    th:last-child  { border-radius: 0 var(--radius) var(--radius) 0; }
+    td {
+      padding: 10px 12px;
+      border-bottom: 1px solid var(--border-sub);
+      color: var(--text-1);
+      vertical-align: top;
+    }
+    tr:last-child td { border-bottom: none; }
+    tr:hover td { background: var(--surface-2); }
+    .num { text-align: right; font-variant-numeric: tabular-nums; white-space: nowrap; }
+    .col-desc { min-width: 180px; }
+    .vazio { color: var(--text-3); font-style: italic; }
+
+    /* ── Totais ── */
+    .totais-grid {
+      display: grid;
+      grid-template-columns: 1fr 1fr;
+      gap: 0 48px;
+      margin-bottom: 16px;
+    }
+    @media (max-width: 680px) { .totais-grid { grid-template-columns: 1fr; } }
+
+    .total-linha {
+      display: flex;
+      justify-content: space-between;
+      padding: 7px 0;
+      border-bottom: 1px solid var(--border-sub);
+      gap: 16px;
+    }
+    .total-linha span:first-child { color: var(--text-2); }
+    .total-linha span:last-child  { font-variant-numeric: tabular-nums; }
+
+    .total-nf {
+      display: flex;
+      justify-content: space-between;
+      align-items: center;
+      padding: 14px 18px;
+      background: color-mix(in srgb, var(--primary) 8%, transparent);
+      border: 1px solid color-mix(in srgb, var(--primary) 30%, transparent);
+      border-radius: var(--radius);
+      font-size: 15px;
+      font-weight: 700;
+    }
+    .total-nf span:last-child { color: var(--primary); font-variant-numeric: tabular-nums; }
+  </style>
+</head>
+<body>
+<div class="container">
+
+  <header>
+    <h1>Leitor XML Fiscal</h1>
+    <p>NFe · NFCe · CTe · MDFe — processamento local, nenhum arquivo é salvo</p>
+  </header>
+
+  <!-- Upload -->
+  <div id="zone">
+    <svg width="44" height="44" viewBox="0 0 24 24" fill="none" stroke="currentColor"
+         stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round">
+      <path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"/>
+      <polyline points="17 8 12 3 7 8"/>
+      <line x1="12" y1="3" x2="12" y2="15"/>
+    </svg>
+    <p class="upload-titulo">Arraste um arquivo XML aqui</p>
+    <p class="upload-ou">ou</p>
+    <label class="btn-browse" for="arquivo" onclick="event.stopPropagation()">Selecionar arquivo</label>
+    <input type="file" id="arquivo" accept=".xml" hidden>
+    <p class="upload-hint">NFe · NFCe · CTe · MDFe</p>
+  </div>
+
+  <!-- Loading -->
+  <div id="loading" hidden>
+    <div class="spinner"></div>
+    <p>Processando XML...</p>
+  </div>
+
+  <!-- Erro -->
+  <div id="erro" hidden></div>
+
+  <!-- Resultado -->
+  <section id="resultado" hidden>
+    <div class="resultado-nav">
+      <button class="btn-novo" id="btn-novo">← Analisar outro arquivo</button>
+    </div>
+    <div id="doc-header"></div>
+    <div class="cards-grid" id="cards"></div>
+    <div class="secao">
+      <h2>Itens</h2>
+      <div id="secao-itens"></div>
+    </div>
+    <div class="secao">
+      <h2>Totais</h2>
+      <div id="secao-totais"></div>
+    </div>
+  </section>
+
+</div>
+<script>
+'use strict';
+
+const $ = id => document.getElementById(id);
+
+// ── Formatadores ──
+
+const fmtR$   = v => v ? new Intl.NumberFormat('pt-BR', { style: 'currency', currency: 'BRL' }).format(+v) : '—';
+const fmtQtd  = v => v ? new Intl.NumberFormat('pt-BR', { maximumFractionDigits: 4 }).format(+v) : '—';
+const fmtCNPJ = v => v ? v.replace(/^(\d{2})(\d{3})(\d{3})(\d{4})(\d{2})$/, '$1.$2.$3/$4-$5') : '—';
+const fmtCPF  = v => v ? v.replace(/^(\d{3})(\d{3})(\d{3})(\d{2})$/, '$1.$2.$3-$4') : '—';
+const fmtCEP  = v => v ? v.replace(/^(\d{5})(\d{3})$/, '$1-$2') : '—';
+const fmtChave = v => v ? v.replace(/(\d{4})(?=\d)/g, '$1 ') : '—';
+
+const tipoOp = v => ({ 0: 'Entrada', 1: 'Saída' }[+v] ?? '—');
+const crtLabel = v => ({ 1: 'Simples Nacional', 2: 'Simples Nacional (Excesso)', 3: 'Regime Normal' }[+v] || v || '—');
+
+function fmtDt(v) {
+  if (!v) return '—';
+  try { return new Date(v).toLocaleString('pt-BR', { dateStyle: 'short', timeStyle: 'short' }); }
+  catch { return v; }
+}
+
+function fmtEndereco(e) {
+  if (!e) return null;
+  const l1 = [e.logradouro, e.numero ? `nº ${e.numero}` : null, e.complemento].filter(Boolean).join(', ');
+  const l2 = [e.bairro, e.municipio && e.uf ? `${e.municipio}/${e.uf}` : (e.municipio || e.uf)].filter(Boolean).join(' — ');
+  const cep = e.cep ? fmtCEP(e.cep) : null;
+  return [l1, l2, cep].filter(Boolean).join('<br>') || null;
+}
+
+// ── Helpers de render ──
+
+function campo(label, valor) {
+  if (!valor || valor === '—') return '';
+  return `<div class="campo">
+    <span class="campo-label">${label}</span>
+    <span class="campo-valor">${valor}</span>
+  </div>`;
+}
+
+function card(titulo, linhas) {
+  return `<div class="card">
+    <h3 class="card-titulo">${titulo}</h3>
+    ${linhas.map(([l, v]) => campo(l, v)).join('')}
+  </div>`;
+}
+
+// ── Render sections ──
+
+function renderDocHeader(d) {
+  const tipo = (d.tipo || 'nfe').toLowerCase();
+  const meta = [
+    d.serie   ? `Série ${d.serie}`  : null,
+    d.numero  ? `NF nº ${d.numero}` : null,
+    d.data_emissao ? fmtDt(d.data_emissao) : null,
+    d.tipo_operacao != null ? tipoOp(d.tipo_operacao) : null,
+  ].filter(Boolean).join(' &nbsp;·&nbsp; ');
+
+  $('doc-header').innerHTML = `
+    <div class="doc-header">
+      <span class="doc-badge ${tipo}">${d.tipo || 'NFe'}</span>
+      <div>
+        <div class="doc-chave" title="Chave de Acesso">${fmtChave(d.chave)}</div>
+        ${meta ? `<div class="doc-meta">${meta}</div>` : ''}
+        ${d.natureza_operacao ? `<div class="doc-nat">${d.natureza_operacao}</div>` : ''}
+      </div>
+    </div>`;
+}
+
+function renderCards(emit, dest) {
+  $('cards').innerHTML =
+    card('Emitente', [
+      ['CNPJ',          fmtCNPJ(emit.cnpj)],
+      ['Razão Social',  emit.nome],
+      ['Nome Fantasia', emit.nome_fantasia],
+      ['IE',            emit.ie],
+      ['CRT',           crtLabel(emit.crt)],
+      ['Endereço',      fmtEndereco(emit.endereco)],
+    ]) +
+    card('Destinatário', [
+      [dest.tipo_documento || 'Documento', dest.tipo_documento === 'CPF' ? fmtCPF(dest.cpf) : fmtCNPJ(dest.cnpj)],
+      ['Nome',     dest.nome],
+      ['IE',       dest.ie],
+      ['E-mail',   dest.email],
+      ['Endereço', fmtEndereco(dest.endereco)],
+    ]);
+}
+
+function renderItens(itens) {
+  if (!itens || !itens.length) {
+    $('secao-itens').innerHTML = '<p class="vazio">Nenhum item encontrado.</p>';
+    return;
+  }
+  const linhas = itens.map(i => `
+    <tr>
+      <td>${i.numero_item ?? '—'}</td>
+      <td class="col-desc">${i.descricao || '—'}</td>
+      <td>${i.ncm || '—'}</td>
+      <td>${i.cfop || '—'}</td>
+      <td>${i.unidade_comercial || '—'}</td>
+      <td class="num">${fmtQtd(i.quantidade)}</td>
+      <td class="num">${fmtR$(i.valor_unitario)}</td>
+      <td class="num">${fmtR$(i.valor_total_produto)}</td>
+      <td class="num">${+i.valor_desconto > 0 ? fmtR$(i.valor_desconto) : '—'}</td>
+    </tr>`).join('');
+
+  $('secao-itens').innerHTML = `
+    <div class="table-wrap">
+      <table>
+        <thead>
+          <tr>
+            <th>Nº</th><th>Descrição</th><th>NCM</th><th>CFOP</th><th>Un.</th>
+            <th class="num">Qtd.</th>
+            <th class="num">Vl. Unit.</th>
+            <th class="num">Vl. Total</th>
+            <th class="num">Desconto</th>
+          </tr>
+        </thead>
+        <tbody>${linhas}</tbody>
+      </table>
+    </div>`;
+}
+
+function renderTotais(t) {
+  const linhas = [
+    ['Valor dos Produtos',         t.valor_produtos],
+    ['Frete',                      t.valor_frete],
+    ['Seguro',                     t.valor_seguro],
+    ['Desconto',                   t.valor_desconto],
+    ['Outros',                     t.valor_outros],
+    ['Base de Cálculo ICMS',       t.base_calculo_icms],
+    ['ICMS',                       t.valor_icms],
+    ['IPI',                        t.valor_ipi],
+    ['PIS',                        t.valor_pis],
+    ['COFINS',                     t.valor_cofins],
+    ['Base ST',                    t.base_calculo_st],
+    ['Substituição Tributária',    t.valor_st],
+    ['Total de Tributos Estimados',t.valor_total_tributos],
+  ].filter(([, v]) => v && +v > 0);
+
+  const grid = linhas.map(([l, v]) => `
+    <div class="total-linha">
+      <span>${l}</span><span>${fmtR$(v)}</span>
+    </div>`).join('');
+
+  $('secao-totais').innerHTML = `
+    <div class="totais-grid">${grid}</div>
+    <div class="total-nf">
+      <span>Valor Total da NF</span>
+      <span>${fmtR$(t.valor_nf)}</span>
+    </div>`;
+}
+
+// ── Controle de estado da UI ──
+
+function mostrar(qual) {
+  // 'upload' | 'loading' | 'erro' | 'resultado'
+  $('zone').hidden      = qual === 'loading' || qual === 'resultado';
+  $('loading').hidden   = qual !== 'loading';
+  $('erro').hidden      = qual !== 'erro';
+  $('resultado').hidden = qual !== 'resultado';
+}
+
+// ── Upload ──
+
+async function processarArquivo(file) {
+  if (!file) return;
+  if (!file.name.toLowerCase().endsWith('.xml')) {
+    $('erro').textContent = 'Arquivo inválido. Envie um arquivo .xml.';
+    mostrar('erro');
+    return;
+  }
+
+  mostrar('loading');
+
+  const form = new FormData();
+  form.append('arquivo', file);
+
+  try {
+    const resp = await fetch('/upload', { method: 'POST', body: form });
+    const dados = await resp.json();
+
+    if (!resp.ok || dados.erro) {
+      $('erro').textContent = dados.erro || 'Erro desconhecido ao processar o XML.';
+      mostrar('erro');
+      return;
+    }
+
+    renderDocHeader(dados);
+    renderCards(dados.emitente || {}, dados.destinatario || {});
+    renderItens(dados.itens);
+    renderTotais(dados.totais || {});
+    mostrar('resultado');
+  } catch (e) {
+    $('erro').textContent = `Falha na comunicação com o servidor: ${e.message}`;
+    mostrar('erro');
+  }
+}
+
+// ── Event listeners ──
+
+const zone = $('zone');
+const inputArquivo = $('arquivo');
+
+// Clique na zona (exceto no label, que já dispara o input via `for`)
+zone.addEventListener('click', e => {
+  if (e.target.closest('label')) return;
+  inputArquivo.click();
+});
+
+zone.addEventListener('dragover', e => { e.preventDefault(); zone.classList.add('drag-over'); });
+zone.addEventListener('dragleave', ()  => zone.classList.remove('drag-over'));
+zone.addEventListener('drop', e => {
+  e.preventDefault();
+  zone.classList.remove('drag-over');
+  processarArquivo(e.dataTransfer.files[0]);
+});
+
+inputArquivo.addEventListener('change', () => {
+  processarArquivo(inputArquivo.files[0]);
+  inputArquivo.value = ''; // permite reenviar o mesmo arquivo
+});
+
+$('btn-novo').addEventListener('click', () => mostrar('upload'));
+</script>
+</body>
+</html>
